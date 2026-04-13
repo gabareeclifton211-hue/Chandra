@@ -1,0 +1,33 @@
+# Build outputs
+cpp-app/build/
+cpp-app/dist/
+
+# Qt auto-generated MOC/RCC artefacts
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# CMake user-local files
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# MSVC
+*.ilk
+*.pdb
+*.suo
+*.user
+*.VC.db
+*.VC.VC.opendb
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Logs written at runtime
+startup_trace.log
+logs/
+audit.log

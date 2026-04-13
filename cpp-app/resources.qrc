@@ -1,0 +1,14 @@
+<RCC>
+  <qresource prefix="/qml">
+    <file>ui/qml/Main.qml</file>
+    <file>ui/qml/views/LoginView.qml</file>
+    <file>ui/qml/views/ShellView.qml</file>
+    <file>ui/qml/views/WardrobeView.qml</file>
+    <file>ui/qml/views/JournalView.qml</file>
+    <file>ui/qml/views/CameraView.qml</file>
+    <file>ui/qml/views/MyProfileView.qml</file>
+    <file>ui/qml/views/ImportView.qml</file>
+    <file>ui/qml/views/AdminView.qml</file>
+    <file>ui/qml/views/SettingsView.qml</file>
+  </qresource>
+</RCC>
