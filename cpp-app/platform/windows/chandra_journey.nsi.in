@@ -1,0 +1,109 @@
+; ============================================================
+; @APP_NAME@ v@APP_VERSION@ – NSIS Installer Script
+; Build: makensis chandra_journey.nsi (run from platform\windows\)
+; ============================================================
+
+!define APP_NAME        "@APP_NAME@"
+!define APP_VERSION     "@APP_VERSION@"
+!define APP_PUBLISHER   "@APP_PUBLISHER@"
+!define APP_EXE         "@APP_EXECUTABLE@.exe"
+!define INST_KEY        "Software\@APP_PUBLISHER@\@APP_INST_KEY@"
+!define UNINST_KEY      "Software\Microsoft\Windows\CurrentVersion\Uninstall\@APP_UNINST_KEY@"
+!define DIST_DIR        "..\..\dist\@APP_DIST_DIR@-@APP_VERSION@"
+
+Unicode True
+SetCompressor /SOLID lzma
+RequestExecutionLevel admin
+
+Name "${APP_NAME} ${APP_VERSION}"
+OutFile "..\..\dist\@APP_DIST_DIR@-${APP_VERSION}-Setup.exe"
+InstallDir "$PROGRAMFILES64\${APP_NAME}"
+InstallDirRegKey HKLM "${INST_KEY}" "InstallDir"
+
+; Pages
+Page directory
+Page instfiles
+UninstPage uninstConfirm
+UninstPage instfiles
+
+; ---- Main install section --------------------------------
+Section "Application" SecApp
+    SectionIn RO
+    SetOutPath "$INSTDIR"
+
+    ; ---- Root DLLs and exe ----
+    File "${DIST_DIR}\@APP_EXECUTABLE@.exe"
+    File "${DIST_DIR}\Qt6Core.dll"
+    File "${DIST_DIR}\Qt6Gui.dll"
+    File "${DIST_DIR}\Qt6Network.dll"
+    File "${DIST_DIR}\Qt6Qml.dll"
+    File "${DIST_DIR}\Qt6QmlCore.dll"
+    File "${DIST_DIR}\Qt6QmlMeta.dll"
+    File "${DIST_DIR}\Qt6QmlModels.dll"
+    File "${DIST_DIR}\Qt6QmlWorkerScript.dll"
+    File "${DIST_DIR}\Qt6Quick.dll"
+    File "${DIST_DIR}\Qt6QuickControls2.dll"
+    File "${DIST_DIR}\Qt6QuickControls2Basic.dll"
+    File "${DIST_DIR}\Qt6QuickControls2BasicStyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2FluentWinUI3StyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2Fusion.dll"
+    File "${DIST_DIR}\Qt6QuickControls2FusionStyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2Imagine.dll"
+    File "${DIST_DIR}\Qt6QuickControls2ImagineStyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2Impl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2Material.dll"
+    File "${DIST_DIR}\Qt6QuickControls2MaterialStyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2Universal.dll"
+    File "${DIST_DIR}\Qt6QuickControls2UniversalStyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickControls2WindowsStyleImpl.dll"
+    File "${DIST_DIR}\Qt6QuickDialogs2.dll"
+    File "${DIST_DIR}\Qt6QuickDialogs2QuickImpl.dll"
+    File "${DIST_DIR}\Qt6QuickDialogs2Utils.dll"
+    File "${DIST_DIR}\Qt6QuickEffects.dll"
+    File "${DIST_DIR}\Qt6QuickLayouts.dll"
+    File "${DIST_DIR}\Qt6QuickShapes.dll"
+    File "${DIST_DIR}\Qt6QuickTemplates2.dll"
+    File "${DIST_DIR}\Qt6LabsFolderListModel.dll"
+    File "${DIST_DIR}\Qt6Sql.dll"
+    File "${DIST_DIR}\Qt6Svg.dll"
+    File "${DIST_DIR}\Qt6Multimedia.dll"
+    File "${DIST_DIR}\Qt6MultimediaQuick.dll"
+    File "${DIST_DIR}\Qt6OpenGL.dll"
+    File "${DIST_DIR}\Qt6Positioning.dll"
+    File "${DIST_DIR}\Qt6WebEngineCore.dll"
+    File "${DIST_DIR}\Qt6WebEngineQuick.dll"
+    File "${DIST_DIR}\Qt6WebChannel.dll"
+    File "${DIST_DIR}\Qt6WebChannelQuick.dll"
+    File "${DIST_DIR}\QtWebEngineProcess.exe"
+    File "${DIST_DIR}\D3Dcompiler_47.dll"
+    File "${DIST_DIR}\opengl32sw.dll"
+    File "${DIST_DIR}\avcodec-61.dll"
+    File "${DIST_DIR}\avformat-61.dll"
+    File "${DIST_DIR}\avutil-59.dll"
+    File "${DIST_DIR}\swresample-4.dll"
+
+    ; ---- Create start menu shortcuts ----
+    SetShellVarContext all
+    CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\@APP_EXECUTABLE@.exe"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+
+    ; ---- Write uninstall information to registry ----
+    WriteRegStr HKLM "${INST_KEY}" "InstallDir" "$INSTDIR"
+    WriteRegStr HKLM "${INST_KEY}" "version" "${APP_VERSION}"
+    WriteRegStr HKLM "${INST_KEY}" "publisher" "${APP_PUBLISHER}"
+    WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "${APP_NAME} ${APP_VERSION}"
+    WriteRegStr HKLM "${UNINST_KEY}" "DisplayVersion" "${APP_VERSION}"
+    WriteRegStr HKLM "${UNINST_KEY}" "Publisher" "${APP_PUBLISHER}"
+    WriteRegStr HKLM "${UNINST_KEY}" "UninstallString" "$INSTDIR\Uninstall.exe"
+    WriteUninstaller "$INSTDIR\Uninstall.exe"
+SectionEnd
+
+; ---- Uninstall section --------------------------------
+Section "Uninstall"
+    SetShellVarContext all
+    RMDir /r "$SMPROGRAMS\${APP_NAME}"
+    RMDir /r "$INSTDIR"
+    DeleteRegKey HKLM "${INST_KEY}"
+    DeleteRegKey HKLM "${UNINST_KEY}"
+SectionEnd

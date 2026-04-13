@@ -3,6 +3,54 @@ project(ChandraJourneyCpp VERSION 1.0.0 LANGUAGES CXX)
 
 include(CTest)
 
+# ============================================================
+# Configurable Application Metadata
+# Override these when configuring to change app name/version
+# ============================================================
+if(NOT APP_NAME)
+    set(APP_NAME "Chandra Journey")
+endif()
+
+if(NOT APP_DISPLAY_NAME)
+    set(APP_DISPLAY_NAME "Chandra Journey (C++ Rebuild)")
+endif()
+
+if(NOT APP_VERSION)
+    set(APP_VERSION "1.0.0")
+endif()
+
+if(NOT APP_PUBLISHER)
+    set(APP_PUBLISHER "Chandra")
+endif()
+
+if(NOT APP_EXECUTABLE)
+    set(APP_EXECUTABLE "chandra_journey")
+endif()
+
+if(NOT APP_INST_KEY)
+    set(APP_INST_KEY "ChandraJourney")
+endif()
+
+if(NOT APP_UNINST_KEY)
+    set(APP_UNINST_KEY "ChandraJourney")
+endif()
+
+if(NOT APP_DIST_DIR)
+    set(APP_DIST_DIR "ChandraJourney")
+endif()
+
+# Generate AppConfig.h from template
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/AppConfig.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/AppConfig.h"
+)
+
+# Generate NSIS installer script from template
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/platform/windows/chandra_journey.nsi.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/../platform/windows/chandra_journey.nsi"
+)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -13,7 +61,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Sql Netwo
 
 qt_standard_project_setup(REQUIRES 6.5)
 
-qt_add_executable(chandra_journey
+qt_add_executable(${APP_EXECUTABLE}
     src/app/main.cpp
     src/app/AppController.cpp
     src/core/DataPaths.cpp
@@ -26,9 +74,9 @@ qt_add_executable(chandra_journey
     resources.qrc
 )
 
-target_include_directories(chandra_journey PRIVATE src)
+target_include_directories(${APP_EXECUTABLE} PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
-target_link_libraries(chandra_journey PRIVATE
+target_link_libraries(${APP_EXECUTABLE} PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Quick
@@ -40,10 +88,10 @@ target_link_libraries(chandra_journey PRIVATE
 )
 
 if(WIN32)
-    set_target_properties(chandra_journey PROPERTIES WIN32_EXECUTABLE ON)
+    set_target_properties(${APP_EXECUTABLE} PROPERTIES WIN32_EXECUTABLE ON)
 endif()
 
-install(TARGETS chandra_journey
+install(TARGETS ${APP_EXECUTABLE}
     BUNDLE DESTINATION .
     RUNTIME DESTINATION bin
 )
@@ -62,7 +110,7 @@ if(BUILD_TESTING)
         resources.qrc
     )
 
-    target_include_directories(regression_tests PRIVATE src)
+    target_include_directories(regression_tests PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
     target_link_libraries(regression_tests PRIVATE
         Qt6::Core
