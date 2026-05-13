@@ -8,6 +8,7 @@ Item {
     required property string category
     property Item dragLayer: null
     property Item dragHost: null
+    property Item toastHost: null
     property int refreshToken: 0
     property bool dragInProgress: false
 
@@ -16,7 +17,10 @@ Item {
     property var allCategories: ["panties", "bras", "what-i-wore-today", "accessories", "makeup"]
     property string searchQuery: ""
     property string selectedType: "All"
+    property string tagFilter: ""
     property var selectedNames: []
+    property bool gridView: true
+    property string sortOrder: "newest"
 
     function clearSelection() {
         selectedNames = []
@@ -64,14 +68,26 @@ Item {
 
     function applyFilters() {
         const q = searchQuery.trim().toLowerCase()
-        visibleFilesModel = filesModel.filter(function(item) {
+        const tf = tagFilter.trim().toLowerCase()
+        let filtered = filesModel.filter(function(item) {
             const name = (item.filename || "").toLowerCase()
             const desc = (item.description || "").toLowerCase()
             const matchesText = q.length === 0 || name.indexOf(q) >= 0 || desc.indexOf(q) >= 0
             const type = inferType(item.filename || "")
             const matchesType = selectedType === "All" || type === selectedType
-            return matchesText && matchesType
+            const itemTags = (item.tags || "").toLowerCase().split(",").map(function(t){ return t.trim() }).filter(function(t){ return t.length > 0 })
+            const matchesTag = tf.length === 0 || itemTags.indexOf(tf) >= 0
+            return matchesText && matchesType && matchesTag
         })
+        if (root.sortOrder === "az") {
+            filtered = filtered.slice().sort(function(a, b) { return (a.filename || "").localeCompare(b.filename || "") })
+        } else if (root.sortOrder === "za") {
+            filtered = filtered.slice().sort(function(a, b) { return (b.filename || "").localeCompare(a.filename || "") })
+        } else if (root.sortOrder === "oldest") {
+            filtered = filtered.slice().reverse()
+        }
+        // "newest" keeps the default DB order (most recent first)
+        visibleFilesModel = filtered
     }
 
     function refreshFiles() {
@@ -117,6 +133,26 @@ Item {
         }
     }
 
+    function deleteAllFiles() {
+        if (filesModel.length === 0)
+            return;
+        confirmDeleteAllDialog.open();
+    }
+
+    MessageDialog {
+        id: confirmDeleteAllDialog
+        title: "Delete All Files?"
+        text: "Are you sure you want to delete ALL files in this category? This cannot be undone."
+        buttons: MessageDialog.Yes | MessageDialog.No
+        onButtonClicked: function(button) {
+            if (button === MessageDialog.Yes) {
+                if (appController.deleteFiles(root.category, filesModel.map(function(item){return item.filename;}))) {
+                    refreshFiles();
+                }
+            }
+        }
+    }
+
     FileDialog {
         id: mediaPicker
         title: "Select Media Files"
@@ -156,6 +192,11 @@ Item {
             Item { Layout.fillWidth: true }
 
             Button {
+                text: root.gridView ? "List View" : "Grid View"
+                onClicked: root.gridView = !root.gridView
+            }
+
+            Button {
                 text: "Refresh"
                 onClicked: refreshFiles()
             }
@@ -180,6 +221,50 @@ Item {
                 currentIndex: 0
                 onCurrentTextChanged: {
                     root.selectedType = currentText
+                    applyFilters()
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+
+            Label {
+                text: "Tag:"
+                color: "#505860"
+            }
+
+            TextField {
+                id: tagFilterField
+                Layout.preferredWidth: 180
+                placeholderText: "Filter by tag"
+                selectByMouse: true
+                onTextChanged: {
+                    root.tagFilter = text
+                    applyFilters()
+                }
+            }
+
+            Button {
+                text: "Clear"
+                visible: tagFilterField.text.length > 0
+                onClicked: {
+                    tagFilterField.text = ""
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+
+            Label { text: "Sort:"; color: "#505860" }
+
+            ComboBox {
+                id: sortCombo
+                model: ["Newest", "Oldest", "A – Z", "Z – A"]
+                currentIndex: 0
+                Layout.preferredWidth: 110
+                onCurrentIndexChanged: {
+                    const map = ["newest", "oldest", "az", "za"]
+                    root.sortOrder = map[currentIndex]
                     applyFilters()
                 }
             }
@@ -220,6 +305,13 @@ Item {
                     }
                 }
             }
+
+            Button {
+                text: "Delete All"
+                enabled: filesModel.length > 0
+                onClicked: deleteAllFiles()
+                ToolTip.text: "Delete all files in this category"
+            }
         }
 
         Rectangle {
@@ -255,27 +347,116 @@ Item {
             wrapMode: Text.Wrap
         }
 
-        ListView {
-            id: filesList
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
-            interactive: !root.dragInProgress
-            model: root.visibleFilesModel
-            spacing: 6
+
+            // ── Grid view ─────────────────────────────────────────────
+            GridView {
+                id: filesGrid
+                anchors.fill: parent
+                visible: root.gridView
+                clip: true
+                model: root.visibleFilesModel
+                cellWidth: 160
+                cellHeight: 185
+
+                delegate: Item {
+                    required property var modelData
+                    width: filesGrid.cellWidth
+                    height: filesGrid.cellHeight
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 5
+                        radius: 8
+                        color: isSelected(modelData.filename) ? "#eef5ff" : "#ffffff"
+                        border.color: isSelected(modelData.filename) ? "#8fb1db" : "#d6d9dd"
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            spacing: 4
+
+                            Image {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 130
+                                fillMode: Image.PreserveAspectCrop
+                                source: root.localFileUrl(modelData.filePath)
+                                clip: true
+                                asynchronous: true
+                                cache: true
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: "#f3f5f7"
+                                    visible: parent.status !== Image.Ready && parent.status !== Image.Loading
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: inferType(modelData.filename)
+                                        color: "#687684"
+                                        font.pixelSize: 12
+                                    }
+                                }
+                            }
+
+                            Label {
+                                text: modelData.filename
+                                Layout.fillWidth: true
+                                elide: Label.ElideRight
+                                font.pixelSize: 11
+                                font.bold: true
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                CheckBox {
+                                    checked: isSelected(modelData.filename)
+                                    onClicked: toggleSelection(modelData.filename)
+                                }
+                                Item { Layout.fillWidth: true }
+                                Button {
+                                    text: "Open"
+                                    font.pixelSize: 10
+                                    padding: 4
+                                    onClicked: appController.openFile(modelData.filePath)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── List view ─────────────────────────────────────────────
+            ListView {
+                id: filesList
+                anchors.fill: parent
+                visible: !root.gridView
+                clip: true
+                interactive: !root.dragInProgress
+                model: root.visibleFilesModel
+                spacing: 6
 
             delegate: Rectangle {
                 required property var modelData
                 property string dragFilename: modelData.filename
                 property string dragCategory: root.category
+                property bool editingDescription: false
+                property bool editingTags: false
                 width: filesList.width
-                height: 154
+                height: itemContent.implicitHeight + 20
                 radius: 8
                 color: isSelected(modelData.filename) ? "#eef5ff" : "#ffffff"
                 border.color: isSelected(modelData.filename) ? "#8fb1db" : "#d6d9dd"
 
                 RowLayout {
-                    anchors.fill: parent
+                    id: itemContent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.margins: 10
                     spacing: 10
 
@@ -397,11 +578,21 @@ Item {
                             Layout.fillWidth: true
                         }
                         Label {
-                            text: modelData.description
-                            color: "#60666c"
-                            visible: modelData.description.length > 0
+                            text: modelData.description.length > 0 ? modelData.description : "Add description..."
+                            color: modelData.description.length > 0 ? "#60666c" : "#a8b0b8"
+                            font.italic: modelData.description.length === 0
+                            visible: !editingDescription
                             elide: Label.ElideRight
                             Layout.fillWidth: true
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.IBeamCursor
+                                onClicked: {
+                                    descField.text = modelData.description
+                                    editingDescription = true
+                                    descField.forceActiveFocus()
+                                }
+                            }
                         }
 
                         RowLayout {
@@ -421,6 +612,7 @@ Item {
                                     if (!nextName || nextName === modelData.filename)
                                         return
                                     if (appController.renameFile(root.category, modelData.filename, nextName)) {
+                                        if (root.toastHost) root.toastHost.showToast("Renamed")
                                         refreshFiles()
                                     }
                                 }
@@ -429,20 +621,136 @@ Item {
 
                         RowLayout {
                             Layout.fillWidth: true
+                            visible: editingDescription
 
                             TextField {
                                 id: descField
                                 Layout.fillWidth: true
-                                text: modelData.description
                                 placeholderText: "Description"
                                 selectByMouse: true
+                                Keys.onEscapePressed: editingDescription = false
+                                Keys.onReturnPressed: {
+                                    if (appController.setFileDescription(root.category, modelData.filename, descField.text)) {
+                                        editingDescription = false
+                                        if (root.toastHost) root.toastHost.showToast("Description saved")
+                                        refreshFiles()
+                                    }
+                                }
                             }
 
                             Button {
-                                text: "Save Description"
+                                text: "Save"
                                 onClicked: {
                                     if (appController.setFileDescription(root.category, modelData.filename, descField.text)) {
+                                        editingDescription = false
+                                        if (root.toastHost) root.toastHost.showToast("Description saved")
                                         refreshFiles()
+                                    }
+                                }
+                            }
+
+                            Button {
+                                text: "✕"
+                                onClicked: editingDescription = false
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: editingTags
+
+                            Label {
+                                text: "Tags:"
+                                color: "#505860"
+                            }
+
+                            TextField {
+                                id: tagsField
+                                Layout.fillWidth: true
+                                placeholderText: "comma-separated tags"
+                                selectByMouse: true
+                                Keys.onEscapePressed: editingTags = false
+                                Keys.onReturnPressed: {
+                                    if (appController.setFileTags(root.category, modelData.filename, tagsField.text)) {
+                                        editingTags = false
+                                        if (root.toastHost) root.toastHost.showToast("Tags saved")
+                                        refreshFiles()
+                                    }
+                                }
+                            }
+
+                            Button {
+                                text: "Save"
+                                onClicked: {
+                                    if (appController.setFileTags(root.category, modelData.filename, tagsField.text)) {
+                                        editingTags = false
+                                        if (root.toastHost) root.toastHost.showToast("Tags saved")
+                                        refreshFiles()
+                                    }
+                                }
+                            }
+
+                            Button {
+                                text: "✕"
+                                onClicked: editingTags = false
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            visible: !editingTags
+                            implicitHeight: tagsDisplayLayout.implicitHeight
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    tagsField.text = modelData.tags || ""
+                                    editingTags = true
+                                    tagsField.forceActiveFocus()
+                                }
+                            }
+
+                            RowLayout {
+                                id: tagsDisplayLayout
+                                width: parent.width
+                                spacing: 4
+
+                                Label {
+                                    text: "Tags:"
+                                    color: "#505860"
+                                }
+
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Repeater {
+                                        model: (modelData.tags || "").split(",").map(function(t){ return t.trim() }).filter(function(t){ return t.length > 0 })
+
+                                        delegate: Rectangle {
+                                            required property string modelData
+                                            height: tagChipLabel.implicitHeight + 6
+                                            width: tagChipLabel.implicitWidth + 16
+                                            radius: height / 2
+                                            color: root.tagFilter.trim().toLowerCase() === modelData.trim().toLowerCase() ? "#4a90d9" : "#dde8f5"
+
+                                            Label {
+                                                id: tagChipLabel
+                                                anchors.centerIn: parent
+                                                text: modelData
+                                                font.pixelSize: 11
+                                                color: root.tagFilter.trim().toLowerCase() === modelData.trim().toLowerCase() ? "#ffffff" : "#2d5a8e"
+                                            }
+                                        }
+                                    }
+
+                                    Label {
+                                        visible: (modelData.tags || "").length === 0
+                                        text: "Add tags..."
+                                        color: "#a8b0b8"
+                                        font.italic: true
+                                        font.pixelSize: 11
                                     }
                                 }
                             }
@@ -489,6 +797,7 @@ Item {
                     }
                 }
             }
+            } // end Item (grid+list container)
         }
     }
 }

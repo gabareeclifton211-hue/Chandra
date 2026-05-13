@@ -4,10 +4,13 @@ import QtQuick.Layouts
 
 Item {
     id: root
+    property Item toastHost: null
 
     property var entriesModel: []
+    property var filteredEntriesModel: []
     property string selectedEntryId: ""
     property var selectedEntryIds: []
+    property string journalSearch: ""
 
     function isSelected(entryId) {
         return selectedEntryIds.indexOf(entryId) >= 0
@@ -20,8 +23,25 @@ Item {
         selectedEntryIds = selectedEntryIds.slice(0)
     }
 
+    function stripHtml(html) {
+        return (html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+    }
+
+    function applyJournalSearch() {
+        const q = journalSearch.trim().toLowerCase()
+        if (q.length === 0) {
+            filteredEntriesModel = entriesModel.slice()
+        } else {
+            filteredEntriesModel = entriesModel.filter(function(e) {
+                return (e.title || "").toLowerCase().indexOf(q) >= 0 ||
+                       stripHtml(e.body || "").toLowerCase().indexOf(q) >= 0
+            })
+        }
+    }
+
     function refreshEntries() {
         entriesModel = appController.listJournal()
+        applyJournalSearch()
         if (entriesModel.length === 0) {
             selectedEntryId = ""
             titleField.text = ""
@@ -111,12 +131,22 @@ Item {
                     }
                 }
 
+                TextField {
+                    Layout.fillWidth: true
+                    placeholderText: "Search entries..."
+                    selectByMouse: true
+                    onTextChanged: {
+                        root.journalSearch = text
+                        root.applyJournalSearch()
+                    }
+                }
+
                 ListView {
                     id: entriesList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    model: root.entriesModel
+                    model: root.filteredEntriesModel
                     spacing: 6
 
                     delegate: Rectangle {
@@ -140,28 +170,38 @@ Item {
                             MouseArea {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     root.selectedEntryId = modelData.id
                                     titleField.text = modelData.title
                                     bodyField.text = modelData.body
                                 }
-                            }
 
-                            Column {
-                                Layout.fillWidth: true
-                                spacing: 4
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width
+                                    spacing: 4
 
-                                Label {
-                                    text: modelData.title
-                                    font.bold: true
-                                    elide: Label.ElideRight
-                                    width: parent.width
-                                }
-                                Label {
-                                    text: modelData.updatedAt
-                                    color: "#626b74"
-                                    elide: Label.ElideRight
-                                    width: parent.width
+                                    Label {
+                                        text: modelData.title
+                                        font.bold: true
+                                        elide: Label.ElideRight
+                                        width: parent.width
+                                    }
+                                    Label {
+                                        text: root.stripHtml(modelData.body)
+                                        color: "#626b74"
+                                        elide: Label.ElideRight
+                                        width: parent.width
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        text: modelData.updatedAt
+                                        color: "#8a9199"
+                                        elide: Label.ElideRight
+                                        width: parent.width
+                                        font.pixelSize: 10
+                                    }
                                 }
                             }
                         }
@@ -180,22 +220,235 @@ Item {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 12
-                spacing: 10
+                spacing: 8
 
                 TextField {
                     id: titleField
                     Layout.fillWidth: true
                     placeholderText: "Entry title"
                     selectByMouse: true
+                    font.pixelSize: 18
+                    font.bold: true
                 }
 
-                TextArea {
-                    id: bodyField
+                // ── Formatting toolbar ─────────────────────────────────
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 38
+                    radius: 6
+                    color: "#f4f6f8"
+                    border.color: "#d6d9dd"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 6
+                        anchors.rightMargin: 6
+                        spacing: 2
+
+                        // Bold
+                        ToolButton {
+                            text: "<b>B</b>"
+                            checkable: true
+                            checked: bodyField.cursorSelection.font.bold
+                            ToolTip.text: "Bold (Ctrl+B)"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.font.bold = checked
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        // Italic
+                        ToolButton {
+                            text: "<i>I</i>"
+                            checkable: true
+                            checked: bodyField.cursorSelection.font.italic
+                            ToolTip.text: "Italic (Ctrl+I)"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.font.italic = checked
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        // Underline
+                        ToolButton {
+                            text: "<u>U</u>"
+                            checkable: true
+                            checked: bodyField.cursorSelection.font.underline
+                            ToolTip.text: "Underline (Ctrl+U)"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.font.underline = checked
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        // Strikethrough
+                        ToolButton {
+                            text: "<s>S</s>"
+                            checkable: true
+                            checked: bodyField.cursorSelection.font.strikeout
+                            ToolTip.text: "Strikethrough"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.font.strikeout = checked
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        Rectangle { width: 1; height: 24; color: "#ccd3da" }
+
+                        // Align Left
+                        ToolButton {
+                            text: "\u2261"
+                            ToolTip.text: "Align Left"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.alignment = Qt.AlignLeft
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        // Align Center
+                        ToolButton {
+                            text: "\u2263"
+                            ToolTip.text: "Align Center"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.alignment = Qt.AlignHCenter
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        // Align Right
+                        ToolButton {
+                            text: "\u2260"
+                            ToolTip.text: "Align Right"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.alignment = Qt.AlignRight
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        Rectangle { width: 1; height: 24; color: "#ccd3da" }
+
+                        // Font size
+                        Label { text: "Size:"; color: "#505860"; font.pixelSize: 12 }
+                        SpinBox {
+                            id: fontSizeBox
+                            from: 8
+                            to: 72
+                            value: 14
+                            implicitWidth: 72
+                            onValueModified: {
+                                bodyField.cursorSelection.font.pixelSize = value
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        Rectangle { width: 1; height: 24; color: "#ccd3da" }
+
+                        // Heading shortcuts
+                        ToolButton {
+                            text: "H1"
+                            font.bold: true
+                            ToolTip.text: "Heading 1"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.font.pixelSize = 26
+                                bodyField.cursorSelection.font.bold = true
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+                        ToolButton {
+                            text: "H2"
+                            font.bold: true
+                            ToolTip.text: "Heading 2"
+                            ToolTip.visible: hovered
+                            onClicked: {
+                                bodyField.cursorSelection.font.pixelSize = 20
+                                bodyField.cursorSelection.font.bold = true
+                                bodyField.forceActiveFocus()
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        // Undo / Redo
+                        ToolButton {
+                            text: "\u21B6"
+                            ToolTip.text: "Undo"
+                            ToolTip.visible: hovered
+                            enabled: bodyField.canUndo
+                            onClicked: bodyField.undo()
+                        }
+                        ToolButton {
+                            text: "\u21B7"
+                            ToolTip.text: "Redo"
+                            ToolTip.visible: hovered
+                            enabled: bodyField.canRedo
+                            onClicked: bodyField.redo()
+                        }
+                    }
+                }
+
+                // ── Editor area ────────────────────────────────────────
+                Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    placeholderText: "Write your journal entry..."
-                    wrapMode: TextArea.Wrap
-                    selectByMouse: true
+                    radius: 6
+                    border.color: bodyField.activeFocus ? "#8fb1db" : "#d6d9dd"
+                    color: "#ffffff"
+
+                    Flickable {
+                        id: bodyFlickable
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        clip: true
+                        contentWidth: bodyField.contentWidth
+                        contentHeight: bodyField.contentHeight
+                        flickableDirection: Flickable.VerticalFlick
+                        ScrollBar.vertical: ScrollBar {}
+
+                        TextEdit {
+                            id: bodyField
+                            width: bodyFlickable.width
+                            height: Math.max(bodyFlickable.height, contentHeight)
+                            wrapMode: TextEdit.Wrap
+                            textFormat: TextEdit.RichText
+                            selectByMouse: true
+                            font.pixelSize: 14
+                            focus: true
+
+                            onCursorRectangleChanged: {
+                                if (cursorRectangle.y < bodyFlickable.contentY)
+                                    bodyFlickable.contentY = cursorRectangle.y
+                                else if (cursorRectangle.y + cursorRectangle.height > bodyFlickable.contentY + bodyFlickable.height)
+                                    bodyFlickable.contentY = cursorRectangle.y + cursorRectangle.height - bodyFlickable.height
+
+                                fontSizeBox.value = cursorSelection.font.pixelSize > 0 ? cursorSelection.font.pixelSize : 14
+                            }
+
+                            // Keyboard shortcuts
+                            Keys.onPressed: function(event) {
+                                if (event.key === Qt.Key_B && (event.modifiers & Qt.ControlModifier)) {
+                                    cursorSelection.font.bold = !cursorSelection.font.bold
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_I && (event.modifiers & Qt.ControlModifier)) {
+                                    cursorSelection.font.italic = !cursorSelection.font.italic
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_U && (event.modifiers & Qt.ControlModifier)) {
+                                    cursorSelection.font.underline = !cursorSelection.font.underline
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_S && (event.modifiers & Qt.ControlModifier)) {
+                                    saveButton.clicked()
+                                    event.accepted = true
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Label {
@@ -210,11 +463,14 @@ Item {
                     Layout.fillWidth: true
 
                     Button {
+                        id: saveButton
                         text: "Save"
                         onClicked: {
-                            const savedId = appController.saveJournal(root.selectedEntryId, titleField.text, bodyField.text)
+                            const html = bodyField.getFormattedText(0, bodyField.length)
+                            const savedId = appController.saveJournal(root.selectedEntryId, titleField.text, html)
                             if (savedId.length > 0) {
                                 root.selectedEntryId = savedId
+                                if (root.toastHost) root.toastHost.showToast("Entry saved")
                                 refreshEntries()
                             }
                         }

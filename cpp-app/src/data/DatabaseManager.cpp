@@ -127,6 +127,10 @@ bool DatabaseManager::ensureSchema(const QSqlDatabase &db)
         return false;
     }
 
+    if (!ensureColumn(db, "file_items", "tags", "TEXT NOT NULL DEFAULT ''")) {
+        return false;
+    }
+
     if (!execSql(query,
         "CREATE TABLE IF NOT EXISTS journal_entries ("
         "id TEXT PRIMARY KEY,"

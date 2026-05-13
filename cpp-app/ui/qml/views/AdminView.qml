@@ -169,10 +169,18 @@ Item {
             Layout.fillWidth: true
 
             Label {
-                text: "Admin"
-                font.pixelSize: 20
-                font.bold: true
-            }
+
+                    text: "Admin"
+                    font.pixelSize: 20
+                    font.bold: true
+                }
+
+                Label {
+                    text: "Total files: " + filesModel.length
+                    color: "#5f6973"
+                    font.pixelSize: 14
+                    Layout.leftMargin: 12
+                }
 
             Item { Layout.fillWidth: true }
 
@@ -505,12 +513,13 @@ Item {
                     spacing: 8
 
                     Label {
-                        text: selectedUserId.length > 0 && selectedUserItem()
-                            ? (selectedUserItem().username + " Media Items")
-                            : "Select a User to View Files"
-                        font.pixelSize: 17
-                        font.bold: true
-                    }
+
+                            text: selectedUserId.length > 0 && selectedUserItem()
+                                ? (selectedUserItem().username + " Media Items (" + visibleFilesModel.length + ")")
+                                : "Select a User to View Files"
+                            font.pixelSize: 17
+                            font.bold: true
+                        }
 
                     RowLayout {
                         Layout.fillWidth: true

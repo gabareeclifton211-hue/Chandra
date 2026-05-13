@@ -345,6 +345,21 @@ bool AppController::setFileDescription(const QString &category, const QString &f
     return ok;
 }
 
+bool AppController::setFileTags(const QString &category, const QString &filename, const QString &tags)
+{
+    if (!m_authenticated) {
+        m_lastError = "Not authenticated.";
+        emit lastErrorChanged();
+        return false;
+    }
+
+    QString error;
+    const bool ok = m_impl->fileMediaService.setTags(m_userId, category, filename, tags, &error);
+    m_lastError = ok ? QString() : error;
+    emit lastErrorChanged();
+    return ok;
+}
+
 bool AppController::openFile(const QString &filePath)
 {
     if (!m_authenticated) {

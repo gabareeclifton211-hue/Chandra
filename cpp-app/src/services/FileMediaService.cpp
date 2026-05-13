@@ -4,7 +4,6 @@
 #include "data/DatabaseManager.h"
 
 #include <QDateTime>
-#include <QDebug>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QEventLoop>
@@ -185,7 +184,7 @@ QVariantList FileMediaService::listFiles(const QString &userId, const QString &c
 
     QSqlQuery query(data::DatabaseManager::database());
     query.prepare(
-        "SELECT filename, file_path, description, created_at, updated_at "
+        "SELECT filename, file_path, description, created_at, updated_at, tags "
         "FROM file_items "
         "WHERE user_id = :user_id AND category = :category "
         "ORDER BY updated_at DESC, created_at DESC");
@@ -202,6 +201,7 @@ QVariantList FileMediaService::listFiles(const QString &userId, const QString &c
         item.insert("description", query.value(2).toString());
         item.insert("createdAt", query.value(3).toString());
         item.insert("updatedAt", query.value(4).toString());
+        item.insert("tags", query.value(5).toString());
         files.append(item);
     }
 
@@ -214,7 +214,7 @@ QVariantList FileMediaService::listAllFiles() const
 
     QSqlQuery query(data::DatabaseManager::database());
     if (!query.exec(
-            "SELECT user_id, category, filename, file_path, description, updated_at "
+            "SELECT user_id, category, filename, file_path, description, updated_at, tags "
             "FROM file_items "
             "ORDER BY updated_at DESC")) {
         return files;
@@ -228,6 +228,7 @@ QVariantList FileMediaService::listAllFiles() const
         item.insert("filePath", query.value(3).toString());
         item.insert("description", query.value(4).toString());
         item.insert("updatedAt", query.value(5).toString());
+        item.insert("tags", query.value(6).toString());
         files.append(item);
     }
 
@@ -261,6 +262,7 @@ QVariantList FileMediaService::listFilesForUser(const QString &userId) const
         item.insert("filePath", query.value(3).toString());
         item.insert("description", query.value(4).toString());
         item.insert("updatedAt", query.value(5).toString());
+        item.insert("tags", query.value(6).toString());
         files.append(item);
     }
 
@@ -480,10 +482,7 @@ bool FileMediaService::uploadFilesAndRemoveSource(const QString &userId,
         const QString localPath = toLocalFilePath(inputPath).trimmed();
         if (!localPath.isEmpty() && QFileInfo::exists(localPath)) {
             if (!QFile::remove(localPath)) {
-                qWarning() << "Failed to remove consumed import source file, retrying:" << localPath;
-                if (!QFile::remove(localPath)) {
-                    qWarning() << "Failed to remove consumed import source file after retry:" << localPath;
-                }
+                QFile::remove(localPath);
             }
         }
     }
@@ -757,6 +756,34 @@ bool FileMediaService::setDescription(const QString &userId,
 
     if (!query.exec()) {
         return writeError(errorMessage, "Failed to update description.");
+    }
+
+    return true;
+}
+
+bool FileMediaService::setTags(const QString &userId,
+                               const QString &category,
+                               const QString &filename,
+                               const QString &tags,
+                               QString *errorMessage) const
+{
+    if (!isValidCategory(category) || !isValidFilename(filename)) {
+        return writeError(errorMessage, "Invalid category or filename.");
+    }
+
+    QSqlQuery query(data::DatabaseManager::database());
+    query.prepare(
+        "UPDATE file_items "
+        "SET tags = :tags, updated_at = :updated_at "
+        "WHERE user_id = :user_id AND category = :category AND filename = :filename");
+    query.bindValue(":tags", tags.trimmed());
+    query.bindValue(":updated_at", nowIso());
+    query.bindValue(":user_id", userId);
+    query.bindValue(":category", category);
+    query.bindValue(":filename", filename);
+
+    if (!query.exec()) {
+        return writeError(errorMessage, "Failed to update tags.");
     }
 
     return true;

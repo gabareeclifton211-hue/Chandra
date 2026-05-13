@@ -42,6 +42,7 @@ public:
     Q_INVOKABLE bool moveFile(const QString &fromCategory, const QString &toCategory, const QString &filename);
     Q_INVOKABLE bool deleteFile(const QString &category, const QString &filename);
     Q_INVOKABLE bool setFileDescription(const QString &category, const QString &filename, const QString &description);
+    Q_INVOKABLE bool setFileTags(const QString &category, const QString &filename, const QString &tags);
     Q_INVOKABLE bool openFile(const QString &filePath);
     Q_INVOKABLE bool deleteFiles(const QString &category, const QStringList &filenames);
     Q_INVOKABLE bool moveFiles(const QString &fromCategory, const QString &toCategory, const QStringList &filenames);

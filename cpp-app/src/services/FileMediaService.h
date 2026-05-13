@@ -31,6 +31,8 @@ public:
                        const QString &toCategory, QString *errorMessage) const;
     bool setDescription(const QString &userId, const QString &category, const QString &filename,
                         const QString &description, QString *errorMessage) const;
+    bool setTags(const QString &userId, const QString &category, const QString &filename,
+                 const QString &tags, QString *errorMessage) const;
 
 private:
     static bool isValidCategory(const QString &category);

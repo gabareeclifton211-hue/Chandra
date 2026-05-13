@@ -9,11 +9,11 @@ ApplicationWindow {
     height: 800
     visible: true
     // ============================================================
-    // Change APP_TITLE to customize the window title
+    // Change appTitle to customize the window title
     // This should match APP_DISPLAY_NAME in CMakeLists.txt
     // ============================================================
-    readonly property string APP_TITLE: "Chandra Journey (C++ Rebuild)"
-    title: root.APP_TITLE
+    readonly property string appTitle: "Chandra Journey (C++ Rebuild)"
+    title: root.appTitle
 
     StackLayout {
         anchors.fill: parent

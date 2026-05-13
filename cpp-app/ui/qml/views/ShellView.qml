@@ -15,6 +15,13 @@ Item {
     property bool customTab2Enabled: false
     property string customTab1Label: "Custom 1"
     property string customTab2Label: "Custom 2"
+    property var categoryCounts: ({})
+
+    function showToast(message) {
+        toastLabel.text = message
+        toastBar.opacity = 1
+        toastTimer.restart()
+    }
 
     function parseBoolSetting(value, fallbackValue) {
         if (value === undefined || value === null)
@@ -40,6 +47,16 @@ Item {
         customTab2Enabled = parseBoolSetting(s.customTab2Enabled, false)
         customTab1Label = sanitizeLabel(s.customTab1Label, "Custom 1")
         customTab2Label = sanitizeLabel(s.customTab2Label, "Custom 2")
+    }
+
+    function refreshCategoryCounts() {
+        const cats = ["panties", "bras", "what-i-wore-today", "accessories", "makeup", "custom-1", "custom-2"]
+        const counts = {}
+        for (let i = 0; i < cats.length; ++i) {
+            const files = appController.listFiles(cats[i])
+            counts[cats[i]] = files ? files.length : 0
+        }
+        categoryCounts = counts
     }
 
     function localFileUrl(path) {
@@ -142,9 +159,12 @@ Item {
         runningClockText = String(hour) + ":" + mm + ":" + ss + " " + suffix
     }
 
+    onWardrobeRefreshTokenChanged: refreshCategoryCounts()
+
     Component.onCompleted: {
         updateRunningClock()
         loadCustomTabsFromSettings()
+        refreshCategoryCounts()
     }
 
     Timer {
@@ -191,8 +211,10 @@ Item {
         spacing: 0
 
         onVisibleChanged: {
-            if (visible)
+            if (visible) {
                 root.loadCustomTabsFromSettings()
+                root.refreshCategoryCounts()
+            }
         }
 
         Rectangle {
@@ -276,7 +298,7 @@ Item {
             TabButton {
                 id: pantiesTab
                 property string dropCategoryId: "panties"
-                text: "Panties"
+                text: "Panties (" + (root.categoryCounts["panties"] || 0) + ")"
                 font.bold: root.manualDragHoverCategory === dropCategoryId || checked
                 contentItem: Text {
                     text: pantiesTab.text
@@ -297,7 +319,7 @@ Item {
             TabButton {
                 id: brasTab
                 property string dropCategoryId: "bras"
-                text: "Bras"
+                text: "Bras (" + (root.categoryCounts["bras"] || 0) + ")"
                 font.bold: root.manualDragHoverCategory === dropCategoryId || checked
                 contentItem: Text {
                     text: brasTab.text
@@ -318,7 +340,7 @@ Item {
             TabButton {
                 id: wiwtTab
                 property string dropCategoryId: "what-i-wore-today"
-                text: "What I Wore Today"
+                text: "What I Wore Today (" + (root.categoryCounts["what-i-wore-today"] || 0) + ")"
                 font.bold: root.manualDragHoverCategory === dropCategoryId || checked
                 contentItem: Text {
                     text: wiwtTab.text
@@ -339,7 +361,7 @@ Item {
             TabButton {
                 id: accessoriesTab
                 property string dropCategoryId: "accessories"
-                text: "Accessories"
+                text: "Accessories (" + (root.categoryCounts["accessories"] || 0) + ")"
                 font.bold: root.manualDragHoverCategory === dropCategoryId || checked
                 contentItem: Text {
                     text: accessoriesTab.text
@@ -360,7 +382,7 @@ Item {
             TabButton {
                 id: makeupTab
                 property string dropCategoryId: "makeup"
-                text: "Makeup"
+                text: "Makeup (" + (root.categoryCounts["makeup"] || 0) + ")"
                 font.bold: root.manualDragHoverCategory === dropCategoryId || checked
                 contentItem: Text {
                     text: makeupTab.text
@@ -456,14 +478,14 @@ Item {
             Layout.fillHeight: true
             currentIndex: tabBar.currentIndex
 
-            WardrobeView { category: "panties"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            WardrobeView { category: "bras"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            WardrobeView { category: "what-i-wore-today"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            WardrobeView { category: "accessories"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            WardrobeView { category: "makeup"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            WardrobeView { category: "custom-1"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            WardrobeView { category: "custom-2"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root }
-            JournalView { }
+            WardrobeView { category: "panties"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            WardrobeView { category: "bras"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            WardrobeView { category: "what-i-wore-today"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            WardrobeView { category: "accessories"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            WardrobeView { category: "makeup"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            WardrobeView { category: "custom-1"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            WardrobeView { category: "custom-2"; refreshToken: root.wardrobeRefreshToken; dragLayer: dragLayer; dragHost: root; toastHost: root }
+            JournalView { toastHost: root }
             CameraView { dragLayer: dragLayer; dragHost: root }
             MyProfileView { }
             ImportView { }
@@ -484,6 +506,35 @@ Item {
                 font.bold: true
                 font.pixelSize: 16
             }
+        }
+    }
+
+    // ── Toast / snackbar ──────────────────────────────────────────────
+    Rectangle {
+        id: toastBar
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 50
+        width: toastLabel.implicitWidth + 40
+        height: 38
+        radius: 19
+        color: "#264653"
+        opacity: 0
+        z: 2000
+
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+
+        Timer {
+            id: toastTimer
+            interval: 2000
+            onTriggered: toastBar.opacity = 0
+        }
+
+        Label {
+            id: toastLabel
+            anchors.centerIn: parent
+            color: "#f4f1de"
+            font.pixelSize: 13
         }
     }
 }
